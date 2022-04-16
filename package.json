@@ -27,7 +27,7 @@
     "@nestjs/platform-express": "^8.0.0",
     "@nestjs/swagger": "^5.2.1",
     "@types/dotenv": "^8.2.0",
-    "bip32": "^3.0.1",
+    "bip32": "^2.0.6",
     "bip39": "^3.0.4",
     "bitcoinjs-lib": "^6.0.1",
     "dotenv": "^16.0.0",

@@ -28,25 +28,28 @@ export class MnemonicsService {
     return mnemonic;
   }
 
-  async generateMasterPrivateKey(mnemonic: string): Promise<BIP32Interface> {
-    //this won't change so no need to request from user
+  async generateMasterPrivateKey(mnemonic: string): Promise<string> {
     const seed = await mnemonicToSeed(mnemonic);
     const privateKey = fromSeed(seed, networks.testnet);
-    return privateKey;
-  }
 
-  async getXpubFromPrivateKey(privateKey: BIP32Interface): Promise<string> {
-    //because it is a multi-sig 2 of 2
     const derivationPath = "m/84'/0'/0'"; // P2WPKH
     const child = privateKey.derivePath(derivationPath).neutered();
     return child.toBase58();
+    // return privateKey;
   }
+
+  // async getXpubFromPrivateKey(privateKey: BIP32Interface): Promise<string> {
+  //   //because it is a multi-sig 2 of 2
+  //   const derivationPath = "m/84'/0'/0'"; // P2WPKH
+  //   const child = privateKey.derivePath(derivationPath).neutered();
+  //   return child.toBase58();
+  // }
 
   async deriveChildPublicKey(xpublickey: string): Promise<BIP32Interface> {
     const derivationPath = "m/84'/0'/0'";
     const node = bip32.fromBase58(xpublickey, networks.testnet);
-    const child = node.derivePath(derivationPath);
-    return child;
+    const publicKey = node.derivePath(derivationPath);
+    return publicKey;
   }
 
   getAddressFromPublicKey(child: bip32.BIP32Interface): payments.Payment {
@@ -78,8 +81,8 @@ export class MnemonicsService {
     if (fee > amountInSatoshis) throw new Error('Fee is too high!');
 
     const psbt = new Psbt({ network: networks.testnet });
-    psbt.setVersion(2); // These are defaults. This line is not needed.
-    psbt.setLocktime(0); // These are defaults. This line is not needed.
+    psbt.setVersion(2);
+    psbt.setLocktime(0);
 
     inputs.forEach((input) => {
       psbt.addInput({
