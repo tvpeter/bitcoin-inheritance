@@ -7,45 +7,53 @@ import { BIP32Interface, fromSeed } from 'bip32';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { networks, bip32, payments, Psbt } from 'bitcoinjs-lib';
-import { DecoratedUtxo, Address } from './mnemonics.types';
+import { DecoratedUtxo, Address } from './types/mnemonics.types';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import coinselect from './coinselect.type';
+import { readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 
 @Injectable()
 export class MnemonicsService {
   constructor(private configService: ConfigService) {}
 
-  createMnemonic(): string {
+  async createMnemonic(): Promise<string> {
     //check if it exists
-    let mnemonic: string = this.configService.get<string>('MNEMONIC');
+    // let mnemonic: string = this.configService.get<string>('MNEMONIC');
+    try {
+      let mnemonic = readFileSync(resolve('util', 'storage.txt'), 'utf8');
 
-    if (mnemonic) {
+      if (mnemonic) {
+        return mnemonic;
+      }
+      mnemonic = generateMnemonic(256);
+
+      await writeFileSync(resolve('util', 'storage.txt'), mnemonic);
       return mnemonic;
+    } catch (error) {
+      console.log(error);
     }
-    mnemonic = generateMnemonic(256);
-    process.env.MNEMONIC = mnemonic;
-    return mnemonic;
   }
 
-  async generateMasterPrivateKey(mnemonic: string): Promise<string> {
+  async generateMasterPrivateKey(mnemonic: string): Promise<BIP32Interface> {
     const seed = await mnemonicToSeed(mnemonic);
-    const privateKey = fromSeed(seed, networks.testnet);
+    const privateKey = await fromSeed(seed, networks.testnet);
 
+    // const derivationPath = "m/84'/0'/0'"; // P2WPKH
+    // const child = privateKey.derivePath(derivationPath).neutered();
+    // return child.toBase58();
+    return privateKey;
+  }
+
+  async getXpubFromPrivateKey(privateKey: BIP32Interface): Promise<string> {
+    //because it is a multi-sig 2 of 2
     const derivationPath = "m/84'/0'/0'"; // P2WPKH
     const child = privateKey.derivePath(derivationPath).neutered();
     return child.toBase58();
-    // return privateKey;
   }
 
-  // async getXpubFromPrivateKey(privateKey: BIP32Interface): Promise<string> {
-  //   //because it is a multi-sig 2 of 2
-  //   const derivationPath = "m/84'/0'/0'"; // P2WPKH
-  //   const child = privateKey.derivePath(derivationPath).neutered();
-  //   return child.toBase58();
-  // }
-
-  async deriveChildPublicKey(xpublickey: string): Promise<BIP32Interface> {
+  async deriveChildPublicKey(xpublickey): Promise<BIP32Interface> {
     const derivationPath = "m/84'/0'/0'";
     const node = bip32.fromBase58(xpublickey, networks.testnet);
     const publicKey = node.derivePath(derivationPath);

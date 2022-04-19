@@ -1,19 +1,25 @@
-import { Controller, Get, HttpStatus, Res, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Res,
+  Post,
+  Body,
+  ValidationPipe,
+  UsePipes,
+} from '@nestjs/common';
 import e, { Request, Response } from 'express';
 import { MnemonicsService } from './mnemonics.service';
 import { CreatePrivateKeyDto } from './dto/CreatePrivateKey.dto';
 import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
-import { BIP32Interface } from 'bip32';
 
 @Controller('wallet')
 export class MnemonicsController {
   constructor(public mnemonicsService: MnemonicsService) {}
 
   @Get('mnemonics')
-  async getMnemonics(
-    @Res() res: Response,
-  ): Promise<e.Response<any, Record<string, any>>> {
-    const mnemonics = this.mnemonicsService.createMnemonic();
+  async getMnemonics(@Res() res: Response): Promise<Response> {
+    const mnemonics = await this.mnemonicsService.createMnemonic();
 
     // return await this.mnemonicsService.generateMasterPrivateKey(mnemonics);
     return res.status(HttpStatus.OK).json({
@@ -23,11 +29,11 @@ export class MnemonicsController {
   }
 
   @Post('privatekey')
+  @UsePipes(ValidationPipe)
   async createMasterPrivateKey(
     @Body() createPrivateKeyDto: CreatePrivateKeyDto,
     @Res() res: Response,
   ): Promise<Response> {
-    //check that the supplied mnemonic exist
     const privateKeyKey = await this.mnemonicsService.generateMasterPrivateKey(
       createPrivateKeyDto.mnemonic,
     );
@@ -35,6 +41,22 @@ export class MnemonicsController {
     return res.status(HttpStatus.CREATED).json({
       message: 'x-public key generated successfully',
       data: privateKeyKey,
+    });
+  }
+
+  @Post('xpubkey')
+  @UsePipes(ValidationPipe)
+  async createXpubkey(
+    @Body() createPublicKeyDto: CreatePublicKeyDto,
+    @Res() res: Response,
+  ): Promise<Response> {
+    const xpublicKey = await this.mnemonicsService.getXpubFromPrivateKey(
+      createPublicKeyDto.xpub,
+    );
+
+    return res.status(HttpStatus.CREATED).json({
+      message: 'x-public key generated successfully',
+      data: xpublicKey,
     });
   }
 

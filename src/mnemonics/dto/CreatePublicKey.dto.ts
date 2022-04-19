@@ -1,3 +1,7 @@
+import { IsNotEmpty, IsString } from "class-validator";
+import { BIP32Interface } from "bip32";
+
 export class CreatePublicKeyDto {
-  xpub: string;
+  @IsNotEmpty()
+  xpub: BIP32Interface;
 }
