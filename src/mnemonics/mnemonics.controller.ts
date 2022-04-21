@@ -12,6 +12,7 @@ import e, { Request, Response } from 'express';
 import { MnemonicsService } from './mnemonics.service';
 import { CreatePrivateKeyDto } from './dto/CreatePrivateKey.dto';
 import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
+import { CreateAddressDTO } from './dto/CreateAddress.dto';
 
 @Controller('wallet')
 export class MnemonicsController {
@@ -34,7 +35,7 @@ export class MnemonicsController {
     @Body() createPrivateKeyDto: CreatePrivateKeyDto,
     @Res() res: Response,
   ): Promise<Response> {
-    const privateKeyKey = await this.mnemonicsService.generateMasterPrivateKey(
+    const privateKeyKey = await this.mnemonicsService.getMasterPrivateKey(
       createPrivateKeyDto.mnemonic,
     );
 
@@ -44,32 +45,56 @@ export class MnemonicsController {
     });
   }
 
-  @Post('xpubkey')
-  @UsePipes(ValidationPipe)
-  async createXpubkey(
-    @Body() createPublicKeyDto: CreatePublicKeyDto,
-    @Res() res: Response,
-  ): Promise<Response> {
-    const xpublicKey = await this.mnemonicsService.getXpubFromPrivateKey(
-      createPublicKeyDto.xpub,
-    );
+  @Get('test')
+  async testAllFunctions(@Res() res: Response) {
+    const result = await this.mnemonicsService.testFunction();
 
-    return res.status(HttpStatus.CREATED).json({
-      message: 'x-public key generated successfully',
-      data: xpublicKey,
+    return res.json({
+      data: result,
     });
   }
 
-  @Post('publickey')
-  async createPublicKey(
-    @Body() createPublicKeyDto: CreatePublicKeyDto,
+  //
+  // @Post('xpubkey')
+  // @UsePipes(ValidationPipe)
+  // async createXpubkey(
+  //   @Body() createPublicKeyDto: CreatePublicKeyDto,
+  //   @Res() res: Response,
+  // ): Promise<Response> {
+  //   const xpublicKey = await this.mnemonicsService.getXpubFromPrivateKey(
+  //     createPublicKeyDto.xpub,
+  //   );
+  //
+  //   return res.status(HttpStatus.CREATED).json({
+  //     message: 'x-public key generated successfully',
+  //     data: xpublicKey,
+  //   });
+  // }
+
+  // @Post('childpub')
+  // async createChildPublicKey(
+  //   @Body() createPublicKeyDto: CreatePublicKeyDto,
+  //   @Res() res: Response,
+  // ): Promise<Response> {
+  //   const publicKey = await this.mnemonicsService.deriveChildPublicKey(
+  //     createPublicKeyDto.xpub,
+  //   );
+  //   return res.status(HttpStatus.CREATED).json({
+  //     message: 'Child public key generated successfully',
+  //     data: publicKey,
+  //   });
+  // }
+
+  @Post('address')
+  async createAddress(
+    @Body() createAddressDto: CreateAddressDTO,
     @Res() res: Response,
   ): Promise<Response> {
-    const publicKey = await this.mnemonicsService.deriveChildPublicKey(
-      createPublicKeyDto.xpub,
+    const publicKey = await this.mnemonicsService.getAddressFromChildPubkey(
+      createAddressDto.childPub,
     );
     return res.status(HttpStatus.CREATED).json({
-      message: 'Child public key generated successfully',
+      message: 'address generated successfully',
       data: publicKey,
     });
   }

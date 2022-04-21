@@ -1,16 +1,9 @@
-import { Injectable } from '@nestjs/common';
 import { generateMnemonic, mnemonicToSeed } from 'bip39';
-import { ConfigService } from '@nestjs/config';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
 import { BIP32Interface, fromSeed } from 'bip32';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import { networks, bip32, payments, Psbt } from 'bitcoinjs-lib';
-import { DecoratedUtxo, Address } from './types/mnemonics.types';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import coinselect from './coinselect.type';
+import { payments, Psbt, bip32, networks } from 'bitcoinjs-lib';
+// import coinselect from 'coinselect';
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -20,7 +13,6 @@ export class MnemonicsService {
 
   async createMnemonic(): Promise<string> {
     //check if it exists
-    // let mnemonic: string = this.configService.get<string>('MNEMONIC');
     try {
       let mnemonic = readFileSync(resolve('util', 'storage.txt'), 'utf8');
 
@@ -29,94 +21,61 @@ export class MnemonicsService {
       }
       mnemonic = generateMnemonic(256);
 
-      await writeFileSync(resolve('util', 'storage.txt'), mnemonic);
+      writeFileSync(resolve('util', 'storage.txt'), mnemonic);
       return mnemonic;
     } catch (error) {
       console.log(error);
     }
   }
 
-  async generateMasterPrivateKey(mnemonic: string): Promise<BIP32Interface> {
-    const seed = await mnemonicToSeed(mnemonic);
-    const privateKey = await fromSeed(seed, networks.testnet);
+  //generate a p2wsh
 
-    // const derivationPath = "m/84'/0'/0'"; // P2WPKH
-    // const child = privateKey.derivePath(derivationPath).neutered();
-    // return child.toBase58();
+  async testFunction(): Promise<any> {
+    const mnemonic = await this.createMnemonic();
+
+    //master private key
+    const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
+    // const masterPrivateKeyFingerPrint = masterPrivateKey.fingerprint;
+
+    //get xpub key
+    const derivationPath = "m/84'/0'/0'";
+    const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
+    //child public key
+    const childDerivationPath = '0/0';
+    const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
+
+    //generate address
+    const address = this.getAddressFromChildPubkey(childPubKey);
+    return address;
+  }
+
+  async getMasterPrivateKey(mnemonic: string): Promise<BIP32Interface> {
+    const seed = await mnemonicToSeed(mnemonic);
+    const privateKey = fromSeed(seed, networks.testnet);
     return privateKey;
   }
 
-  async getXpubFromPrivateKey(privateKey: BIP32Interface): Promise<string> {
-    //because it is a multi-sig 2 of 2
-    const derivationPath = "m/84'/0'/0'"; // P2WPKH
+  getXpubFromPrivateKey(
+    privateKey: BIP32Interface,
+    derivationPath: string,
+  ): string {
     const child = privateKey.derivePath(derivationPath).neutered();
-    return child.toBase58();
+    const xpub = child.toBase58();
+    return xpub;
   }
 
-  async deriveChildPublicKey(xpublickey): Promise<BIP32Interface> {
-    const derivationPath = "m/84'/0'/0'";
-    const node = bip32.fromBase58(xpublickey, networks.testnet);
-    const publicKey = node.derivePath(derivationPath);
-    return publicKey;
+  deriveChildPublicKey(xpub: string, derivationPath: string): BIP32Interface {
+    const node = bip32.fromBase58(xpub, networks.testnet);
+    const child = node.derivePath(derivationPath);
+    return child;
   }
 
-  getAddressFromPublicKey(child: bip32.BIP32Interface): payments.Payment {
-    return payments.p2wpkh({
+  getAddressFromChildPubkey(child: bip32.BIP32Interface): payments.Payment {
+    const address = payments.p2wpkh({
       pubkey: child.publicKey,
       network: networks.testnet,
     });
-  }
-  createTransasction(
-    utxos: DecoratedUtxo[],
-    recipientAddress: string,
-    amountInSatoshis: number,
-    changeAddress: Address,
-  ): Psbt {
-    // const feeRate = await getFeeRates();
 
-    const { inputs, outputs, fee } = coinselect(
-      utxos,
-      [
-        {
-          address: recipientAddress,
-          value: amountInSatoshis,
-        },
-      ],
-      4,
-    );
-
-    if (!inputs || !outputs) throw new Error('Unable to construct transaction');
-    if (fee > amountInSatoshis) throw new Error('Fee is too high!');
-
-    const psbt = new Psbt({ network: networks.testnet });
-    psbt.setVersion(2);
-    psbt.setLocktime(0);
-
-    inputs.forEach((input) => {
-      psbt.addInput({
-        hash: input.txid,
-        index: input.vout,
-        sequence: 0xfffffffd, // enables RBF
-        witnessUtxo: {
-          value: input.value,
-          script: input.address.output!,
-        },
-        bip32Derivation: input.bip32Derivation,
-      });
-    });
-
-    outputs.forEach((output) => {
-      // coinselect doesnt apply address to change output, so add it here
-      if (!output.address) {
-        output.address = changeAddress.address!;
-      }
-
-      psbt.addOutput({
-        address: output.address,
-        value: output.value,
-      });
-    });
-
-    return psbt;
+    return address;
   }
 }
