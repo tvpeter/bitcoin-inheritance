@@ -13,6 +13,7 @@ import { MnemonicsService } from './mnemonics.service';
 import { CreatePrivateKeyDto } from './dto/CreatePrivateKey.dto';
 import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
 import { CreateAddressDTO } from './dto/CreateAddress.dto';
+import { createPublicKey } from 'crypto';
 
 @Controller('wallet')
 export class MnemonicsController {
@@ -45,9 +46,14 @@ export class MnemonicsController {
     });
   }
 
-  @Get('test')
-  async testAllFunctions(@Res() res: Response) {
-    const result = await this.mnemonicsService.testFunction();
+  @Post('test')
+  async testAllFunctions(
+    @Body() createPublicKey: CreatePublicKeyDto,
+    @Res() res: Response,
+  ) {
+    const result = await this.mnemonicsService.testFunction(
+      createPublicKey.xpub,
+    );
 
     return res.json({
       data: result,
