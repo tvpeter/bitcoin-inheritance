@@ -91,6 +91,20 @@ export class MnemonicsController {
   //   });
   // }
 
+  //  @Post('transaction')
+  // async createTransaction(
+  //   @Body() createPublicKeyDto: CreatePublicKeyDto,
+  //   @Res() res: Response,
+  // ): Promise<Response> {
+  //   const publicKey = await this.mnemonicsService.deriveChildPublicKey(
+  //     createPublicKeyDto.xpub,
+  //   );
+  //   return res.status(HttpStatus.CREATED).json({
+  //     message: 'Child public key generated successfully',
+  //     data: publicKey,
+  //   });
+  // }
+
   @Post('address')
   async createAddress(
     @Body() createAddressDto: CreateAddressDTO,

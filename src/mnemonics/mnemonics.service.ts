@@ -16,11 +16,15 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import coinselect from 'coinselect';
-import bip65 from 'bip65';
+import { HttpService } from '@nestjs/axios';
+import { Observable } from 'rxjs';
+import { AxiosResponse } from 'axios';
 @Injectable()
 export class MnemonicsService {
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private httpService: HttpService,
+  ) {}
 
   async createMnemonic(): Promise<string> {
     //check if it exists
@@ -126,12 +130,18 @@ export class MnemonicsService {
   async createTransasction(
     recipientAddress: string,
     amountInSatoshis: number,
-    witnessScriptOutput,
+    childPubKey,
     transaction_id: string,
     output_index: number,
     privateKey,
   ): Promise<Psbt> {
     // const feeRate = await getFeeRates();
+    const bobAddress = 'bcrt1qev7gag9fevkmh2gc4zx5mp5th76meppddq20yn';
+    const bobPubkey =
+      '039413f1c2089625e32a5b4be3027939da5c0c5e7b15125512153b24093c356fb7';
+    const bobPrivKey = 'cMhD6o7vpakenXFdtDoP91wQRBdEdGbkjYyL9RihYDBghuy4NBZr';
+
+    const witnessScriptOutput = this.generateScript(childPubKey, bobPrivKey);
 
     const psbt = new Psbt({ network: networks.testnet });
     // psbt.setLocktime(this.timeLockDuration);
@@ -141,7 +151,7 @@ export class MnemonicsService {
       index: output_index,
       sequence: 0xfffffffe,
       nonWitnessUtxo: Buffer.from('TX_HEX', 'hex'),
-      redeemScript: Buffer.from(witnessScriptOutput, 'hex'),
+      redeemScript: Buffer.from(witnessScriptOutput.toString(), 'hex'),
     });
 
     psbt.addOutput({
@@ -202,5 +212,17 @@ export class MnemonicsService {
     writeVector(witness);
 
     return buffer;
+  }
+
+  async getTransactionsOnAnAddress(
+    address: string,
+  ): Promise<Observable<AxiosResponse<any, any>>> {
+    const base_url = this.configService.get<string>(
+      'BLOCKSTREAM_TEST_ENDPOINT',
+    );
+
+    const url = `${base_url}/${address}/txs`;
+
+    return await this.httpService.get(url);
   }
 }

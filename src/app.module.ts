@@ -4,12 +4,14 @@ import { AppService } from './app.service';
 import { MnemonicsController } from './mnemonics/mnemonics.controller';
 import { MnemonicsService } from './mnemonics/mnemonics.service';
 import { ConfigModule } from '@nestjs/config';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    HttpModule,
   ],
   controllers: [AppController, MnemonicsController],
   providers: [AppService, MnemonicsService],
