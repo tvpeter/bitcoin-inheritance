@@ -1,5 +1,7 @@
 import { generateMnemonic, mnemonicToSeed } from 'bip39';
 import { BIP32Interface, fromSeed } from 'bip32';
+import * as varuint from 'bip174/src/lib/converter/varint';
+
 import {
   payments,
   Psbt,
@@ -7,13 +9,15 @@ import {
   networks,
   script,
   opcodes,
+  crypto,
 } from 'bitcoinjs-lib';
 // import coinselect from 'coinselect';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-
+import coinselect from 'coinselect';
+import bip65 from 'bip65';
 @Injectable()
 export class MnemonicsService {
   constructor(private configService: ConfigService) {}
@@ -112,5 +116,91 @@ export class MnemonicsService {
       opcodes.OP_CSV,
       opcodes.OP_ENDIF,
     ]);
+  }
+
+  // timeLockDuration = bip65.encode({
+  //   utc: Math.floor(Date.now() / 1000) - 3600 * 6,
+  // });
+
+  //create and sign transaction
+  async createTransasction(
+    recipientAddress: string,
+    amountInSatoshis: number,
+    witnessScriptOutput,
+    transaction_id: string,
+    output_index: number,
+    privateKey,
+  ): Promise<Psbt> {
+    // const feeRate = await getFeeRates();
+
+    const psbt = new Psbt({ network: networks.testnet });
+    // psbt.setLocktime(this.timeLockDuration);
+
+    psbt.addInput({
+      hash: transaction_id,
+      index: output_index,
+      sequence: 0xfffffffe,
+      nonWitnessUtxo: Buffer.from('TX_HEX', 'hex'),
+      redeemScript: Buffer.from(witnessScriptOutput, 'hex'),
+    });
+
+    psbt.addOutput({
+      address: recipientAddress,
+      value: amountInSatoshis,
+    });
+
+    psbt.signInput(0, privateKey);
+    // psbt.signInput(0, keyPairBob1);
+
+    // Step 1: Check to make sure the meaningful locking script matches what you expect.
+    const decompiled = script.decompile(witnessScriptOutput);
+    if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
+      throw new Error(`Can not finalize input`);
+    }
+
+    const paymentFirstBranch = payments.p2wsh({
+      redeem: {
+        input: script.compile([privateKey.signature, opcodes.OP_TRUE]),
+        output: witnessScriptOutput,
+      },
+    });
+
+    const finalScriptWitness = this.witnessStackToScriptWitness(
+      paymentFirstBranch.witness,
+    );
+
+    // psbt.finalizeInput(0, finalScriptWitness);
+
+    return psbt;
+  }
+
+  witnessStackToScriptWitness(witness): Buffer {
+    let buffer = Buffer.allocUnsafe(0);
+
+    function writeSlice(slice: Buffer): void {
+      buffer = Buffer.concat([buffer, Buffer.from(slice)]);
+    }
+
+    function writeVarInt(i: number): void {
+      const currentLen = buffer.length;
+      const varintLen = varuint.encodingLength(i);
+
+      buffer = Buffer.concat([buffer, Buffer.allocUnsafe(varintLen)]);
+      varuint.encode(i, buffer, currentLen);
+    }
+
+    function writeVarSlice(slice: Buffer): void {
+      writeVarInt(slice.length);
+      writeSlice(slice);
+    }
+
+    function writeVector(vector: Buffer[]): void {
+      writeVarInt(vector.length);
+      vector.forEach(writeVarSlice);
+    }
+
+    writeVector(witness);
+
+    return buffer;
   }
 }
