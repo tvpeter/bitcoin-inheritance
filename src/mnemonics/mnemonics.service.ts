@@ -84,12 +84,13 @@ export class MnemonicsService {
     const derivationPath = "m/84'/0'/0'";
     const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
     //child public key
+
     const childDerivationPath = '0/1';
     const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
-
-    //generate address
-    const address = this.generateP2WSHAddress(childPubKey, heirPubKey);
-    return address;
+    return childPubKey.publicKey.toString('hex');
+    // //generate address
+    // const address = this.generateP2WSHAddress(childPubKey, heirPubKey);
+    // return address;
   }
 
   async getMasterPrivateKey(mnemonic: string): Promise<BIP32Interface> {
@@ -129,9 +130,9 @@ export class MnemonicsService {
     //   redeem: { output: witnessScript, network: networks.testnet },
     //   network: networks.testnet,
     // });
-    const address = witnessScript.address;
+    // const address = witnessScript.address;
 
-    return address;
+    return witnessScript;
   }
 
   // generateScript(childPubKey, heirPubKey) {
@@ -161,12 +162,13 @@ export class MnemonicsService {
     amountInSatoshis: number,
     transaction_id: string,
     output_index: number,
-    redeemScript,
     alicePubKey,
+    heirPubKey,
   ): Promise<any> {
-    const sequence = encode({ blocks: 0, seconds: 7168 });
+    const sequence = encode({ seconds: 7168 });
     // const nonWitnessUtxo = Buffer.from(utx.txHex, 'hex');
     const alice = ECPair.fromWIF(alicePubKey, networks.regtest);
+    const redeemScript = this.redeemScript(alicePubKey, heirPubKey);
 
     const psbt = new Psbt({ network: networks.regtest })
       .setVersion(2)
@@ -190,16 +192,16 @@ export class MnemonicsService {
     return psbt;
   }
 
-  createRefreshOutputScript(_alice: KeyPair, _bob: KeyPair): Buffer {
-    const sequence = encode({ blocks: 0, seconds: 7168 });
+  createRefreshOutputScript(aliceKey: KeyPair, bobKey: KeyPair): Buffer {
+    const sequence = encode({ seconds: 7168 });
 
     return script.fromASM(
       `
-      ${_alice.publicKey.toString('hex')}
+      ${aliceKey.publicKey.toString('hex')}
       OP_CHECKSIG
       OP_IFDUP
       OP_NOTIF
-          ${_bob.publicKey.toString('hex')}
+          ${bobKey}
           OP_CHECKSIGVERIFY
           ${script.number.encode(sequence).toString('hex')}
           OP_CHECKSEQUENCEVERIFY

@@ -135,8 +135,8 @@ export class MnemonicsController {
       createTX.amount,
       createTX.transaction_id,
       createTX.output_index,
-      createTX.redeemScript,
       createTX.pubkey,
+      createTX.heirPubKey,
     );
     return res.status(HttpStatus.CREATED).json({
       message: 'Transaction created successfully',

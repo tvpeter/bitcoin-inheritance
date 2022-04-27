@@ -14,8 +14,7 @@ export class CreateTx {
 
   @IsNotEmpty()
   output_index: number;
-
-  redeemScript: any;
-
   pubkey: string;
+
+  heirPubKey: string;
 }

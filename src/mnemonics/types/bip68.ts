@@ -9,6 +9,12 @@ const BLOCKS_MAX = SEQUENCE_LOCKTIME_MASK;
 const SECONDS_MOD = 1 << SEQUENCE_LOCKTIME_GRANULARITY;
 const SECONDS_MAX = SEQUENCE_LOCKTIME_MASK << SEQUENCE_LOCKTIME_GRANULARITY;
 
+interface Encode {
+  blocks?: number | undefined;
+
+  seconds?: number | undefined;
+}
+
 export const decode = (sequence) => {
   if (sequence & SEQUENCE_LOCKTIME_DISABLE_FLAG) return {};
   if (sequence & SEQUENCE_LOCKTIME_TYPE_FLAG) {
@@ -23,7 +29,7 @@ export const decode = (sequence) => {
   };
 };
 
-export const encode = ({ blocks, seconds }) => {
+export const encode = ({ blocks, seconds }: Encode) => {
   if (blocks !== undefined && seconds !== undefined)
     throw new TypeError('Cannot encode blocks AND seconds');
   if (blocks === undefined && seconds === undefined) return SEQUENCE_FINAL; // neither? assume final
