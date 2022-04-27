@@ -78,6 +78,21 @@ export class MnemonicsController {
     });
   }
 
+  @Get('address/utxo')
+  @UsePipes(ValidationPipe)
+  public async getUTXOforAddress(
+    @Query() query,
+    @Res() res: Response,
+  ): Promise<e.Response<any, Record<string, any>>> {
+    const tranxs = await this.mnemonicsService.getUTXOfromAddress(
+      query.address,
+    );
+    return res.status(HttpStatus.OK).json({
+      message: 'Successfully retrieved utxo for given address',
+      data: tranxs,
+    });
+  }
+
   //
   // @Post('xpubkey')
   // @UsePipes(ValidationPipe)

@@ -229,4 +229,18 @@ export class MnemonicsService {
 
     return resp;
   }
+
+  async getUTXOfromAddress(address: string): Promise<Observable<any>> {
+    const base_url = this.configService.get<string>(
+      'BLOCKSTREAM_TEST_ENDPOINT',
+    );
+
+    const url = `${base_url}/address/${address}/utxo`;
+    // console.log(url);
+    const resp = await lastValueFrom(
+      this.httpService.get(url).pipe(map((resp) => resp.data)),
+    );
+
+    return resp;
+  }
 }
