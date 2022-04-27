@@ -79,7 +79,7 @@ export class MnemonicsService {
     //master private key
     const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
     // const masterPrivateKeyFingerPrint = masterPrivateKey.fingerprint;
-
+    return masterPrivateKey.toWIF();
     //get xpub key
     const derivationPath = "m/84'/0'/0'";
     const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
@@ -87,7 +87,7 @@ export class MnemonicsService {
 
     const childDerivationPath = '0/1';
     const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
-    return childPubKey.publicKey.toString('hex');
+    return childPubKey;
     // //generate address
     // const address = this.generateP2WSHAddress(childPubKey, heirPubKey);
     // return address;
@@ -164,11 +164,12 @@ export class MnemonicsService {
     output_index: number,
     alicePubKey: string,
     heirPubKey: string,
+    privateKey: string,
   ): Promise<any> {
     const sequence = encode({ seconds: 7168 });
     // const nonWitnessUtxo = Buffer.from(utx.txHex, 'hex');
 
-    const alice = ECPair.fromWIF(alicePubKey, networks.regtest);
+    const alice = ECPair.fromWIF(privateKey, networks.regtest);
     const redeemScript = this.redeemScript(alicePubKey, heirPubKey);
 
     const psbt = new Psbt({ network: networks.regtest })
@@ -193,12 +194,12 @@ export class MnemonicsService {
     return psbt;
   }
 
-  createRefreshOutputScript(aliceKey: KeyPair, bobKey: KeyPair): Buffer {
+  createRefreshOutputScript(aliceKey, bobKey: KeyPair): Buffer {
     const sequence = encode({ seconds: 7168 });
 
     return script.fromASM(
       `
-      ${aliceKey.publicKey.toString('hex')}
+      ${aliceKey.toString('hex')}
       OP_CHECKSIG
       OP_IFDUP
       OP_NOTIF

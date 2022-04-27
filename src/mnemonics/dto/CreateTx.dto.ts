@@ -20,4 +20,7 @@ export class CreateTx {
 
   @IsNotEmpty()
   heirPubKey: string;
+
+  @IsNotEmpty()
+  privateKey: string;
 }
