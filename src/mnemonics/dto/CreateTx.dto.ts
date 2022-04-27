@@ -14,7 +14,10 @@ export class CreateTx {
 
   @IsNotEmpty()
   output_index: number;
+
+  @IsNotEmpty()
   pubkey: string;
 
+  @IsNotEmpty()
   heirPubKey: string;
 }

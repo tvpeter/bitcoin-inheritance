@@ -157,16 +157,17 @@ export class MnemonicsService {
   // });
 
   //create and sign transaction
-  async createTransasction(
+  async createTransaction(
     recipientAddress: string,
     amountInSatoshis: number,
     transaction_id: string,
     output_index: number,
-    alicePubKey,
-    heirPubKey,
+    alicePubKey: string,
+    heirPubKey: string,
   ): Promise<any> {
     const sequence = encode({ seconds: 7168 });
     // const nonWitnessUtxo = Buffer.from(utx.txHex, 'hex');
+
     const alice = ECPair.fromWIF(alicePubKey, networks.regtest);
     const redeemScript = this.redeemScript(alicePubKey, heirPubKey);
 

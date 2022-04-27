@@ -130,7 +130,7 @@ export class MnemonicsController {
     @Body() createTX: CreateTx,
     @Res() res: Response,
   ): Promise<Response> {
-    const psbt = this.mnemonicsService.createTransasction(
+    const psbt = this.mnemonicsService.createTransaction(
       createTX.recipientAddress,
       createTX.amount,
       createTX.transaction_id,
