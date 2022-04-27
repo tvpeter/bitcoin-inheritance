@@ -17,6 +17,7 @@ import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
 import { CreateAddressDTO } from './dto/CreateAddress.dto';
 import { createPublicKey } from 'crypto';
 import { AddressTxsDTO } from './dto/GetAddressTxs.dto';
+import { CreateTx } from './dto/CreateTx.dto';
 
 @Controller('wallet')
 export class MnemonicsController {
@@ -124,26 +125,31 @@ export class MnemonicsController {
   //   });
   // }
 
-  //  @Post('transaction')
-  // async createTransaction(
-  //   @Body() createPublicKeyDto: CreatePublicKeyDto,
-  //   @Res() res: Response,
-  // ): Promise<Response> {
-  //   const publicKey = await this.mnemonicsService.deriveChildPublicKey(
-  //     createPublicKeyDto.xpub,
-  //   );
-  //   return res.status(HttpStatus.CREATED).json({
-  //     message: 'Child public key generated successfully',
-  //     data: publicKey,
-  //   });
-  // }
+  @Post('trx')
+  async createTransaction(
+    @Body() createTX: CreateTx,
+    @Res() res: Response,
+  ): Promise<Response> {
+    const psbt = this.mnemonicsService.createTransasction(
+      createTX.recipientAddress,
+      createTX.amount,
+      createTX.transaction_id,
+      createTX.output_index,
+      createTX.redeemScript,
+      createTX.pubkey,
+    );
+    return res.status(HttpStatus.CREATED).json({
+      message: 'Transaction created successfully',
+      data: psbt,
+    });
+  }
 
   @Post('address')
   async createAddress(
     @Body() createAddressDto: CreateAddressDTO,
     @Res() res: Response,
   ): Promise<Response> {
-    const publicKey = await this.mnemonicsService.getAddressFromChildPubkey(
+    const publicKey = this.mnemonicsService.getAddressFromChildPubkey(
       createAddressDto.childPub,
     );
     return res.status(HttpStatus.CREATED).json({

@@ -36,3 +36,7 @@ export interface DecoratedUtxo extends BlockstreamAPIUtxoResponse {
     path: string;
   }[];
 }
+
+export interface KeyPair {
+  publicKey: Buffer;
+}
