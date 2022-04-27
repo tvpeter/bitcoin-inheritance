@@ -68,7 +68,6 @@ export class MnemonicsService {
   // const ADDR1 = "bcrt1qhuut7wf7m9acg9ger4ce3pkhk8g5hskmknwldg"
   // const PUBKEY1 = "024c5e555945f6631a6098c00eb89c72767b2b50f120c98663f209f9ef206e23f9"
   // const PK1 = "cUAUHyKjLV8VuJCsxLoyRuc2gP859WPaceqcXfqVuAfHudpkcmmW"
-
   // const ADDR2 = "bcrt1q7dzdhap9g99nw82dv4qll4jshhr4m2f47umt4g"
   // const PUBKEY2 = "03f576f5febc937cb35f89014a691b99b6b040ef35a5909dd32a974a5c6704efc5"
   // const PK2 = "cN7WgpTFNcKncaYkecYrp4S9xXPiTzEwsqARKe5zR9sqWrMUDYev"
