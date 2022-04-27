@@ -7,13 +7,16 @@ import {
   Body,
   ValidationPipe,
   UsePipes,
+  Param,
+  Query,
 } from '@nestjs/common';
-import e, { Request, Response } from 'express';
+import e, { query, Request, Response } from 'express';
 import { MnemonicsService } from './mnemonics.service';
 import { CreatePrivateKeyDto } from './dto/CreatePrivateKey.dto';
 import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
 import { CreateAddressDTO } from './dto/CreateAddress.dto';
 import { createPublicKey } from 'crypto';
+import { AddressTxsDTO } from './dto/GetAddressTxs.dto';
 
 @Controller('wallet')
 export class MnemonicsController {
@@ -57,6 +60,21 @@ export class MnemonicsController {
 
     return res.json({
       data: result,
+    });
+  }
+
+  @Get('address/txs')
+  @UsePipes(ValidationPipe)
+  public async getAddressTransactions(
+    @Query() query,
+    @Res() res: Response,
+  ): Promise<e.Response<any, Record<string, any>>> {
+    const tranxs = await this.mnemonicsService.getTransactionsOnAnAddress(
+      query.address,
+    );
+    return res.status(HttpStatus.OK).json({
+      message: 'Successfully retrieved address transacttions',
+      data: tranxs,
     });
   }
 

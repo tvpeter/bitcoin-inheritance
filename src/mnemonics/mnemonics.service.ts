@@ -17,8 +17,10 @@ import { ConfigService } from '@nestjs/config';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { HttpService } from '@nestjs/axios';
-import { Observable } from 'rxjs';
+import { lastValueFrom, Observable } from 'rxjs';
 import { AxiosResponse } from 'axios';
+import { map, merge, mergeMap, switchMap, tap } from 'rxjs/operators';
+
 @Injectable()
 export class MnemonicsService {
   constructor(
@@ -214,15 +216,17 @@ export class MnemonicsService {
     return buffer;
   }
 
-  async getTransactionsOnAnAddress(
-    address: string,
-  ): Promise<Observable<AxiosResponse<any, any>>> {
+  async getTransactionsOnAnAddress(address: string): Promise<Observable<any>> {
     const base_url = this.configService.get<string>(
       'BLOCKSTREAM_TEST_ENDPOINT',
     );
 
-    const url = `${base_url}/${address}/txs`;
+    const url = `${base_url}/address/${address}/txs`;
+    // console.log(url);
+    const resp = await lastValueFrom(
+      this.httpService.get(url).pipe(map((resp) => resp.data)),
+    );
 
-    return await this.httpService.get(url);
+    return resp;
   }
 }
