@@ -74,22 +74,43 @@ export class MnemonicsService {
 
   async testFunction(heirPubKey): Promise<any> {
     const mnemonic = await this.createMnemonic();
+    console.log('menomics: ' + mnemonic);
 
-    //master private key
-    const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
-    // const masterPrivateKeyFingerPrint = masterPrivateKey.fingerprint;
-    return masterPrivateKey.toWIF();
-    //get xpub key
-    const derivationPath = "m/84'/0'/0'";
-    const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
-    //child public key
+    // //master private key
+    // const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
+    // // const masterPrivateKeyFingerPrint = masterPrivateKey.fingerprint;
+    // console.log('private key master: ' + masterPrivateKey.toWIF());
+    // //get xpub key
+    // const derivationPath = "m/84'/0'/0'";
+    // const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
+    // //child public key
+    // console.log('xpub key ' + xpub);
 
-    const childDerivationPath = '0/1';
-    const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
-    return childPubKey;
+    // const childDerivationPath = '0/1';
+    // const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
+    // // return childPubKey;
+    // console.log('public key ' + childPubKey);
     // //generate address
-    // const address = this.generateP2WSHAddress(childPubKey, heirPubKey);
-    // return address;
+
+    const alice = ECPair.fromWIF(
+      'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
+      networks.testnet,
+    );
+
+    const bob = ECPair.fromWIF(
+      'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
+      networks.testnet,
+    );
+    console.log('Alice is using pubkey: ' + alice.publicKey.toString('hex'));
+    console.log('Bob is using pubkey:   ' + bob.publicKey.toString('hex'));
+    console.log('Alice private key:   ' + alice.privateKey.toString('hex'));
+    console.log('Bob private key key:   ' + bob.privateKey.toString('hex'));
+
+    const address = this.generateP2WSHAddress(
+      alice.publicKey.toString('hex'),
+      bob.publicKey.toString('hex'),
+    );
+    return address;
   }
 
   async getMasterPrivateKey(mnemonic: string): Promise<BIP32Interface> {
@@ -169,35 +190,57 @@ export class MnemonicsService {
       'BLOCKSTREAM_TEST_ENDPOINT',
     );
 
-    const url = `${base_url}/tx/${transaction_id}`;
+    const addr = 'tb1qjah7lr0zu9e6y0gu52dkc6mrxh5wev3qwnkcnf';
+    // menomics: offer demand swallow lizard taste connect media cool flame mail pistol resource rebel assault panther shove wink planet flip notable reduce blanket horror aspect
+    //Alice is using pubkey: 038ea27103fb646a2cea9eca9080737e0b23640caaaef2853416c9b286b353313e
+    //Bob is using pubkey:   038f0248cc0bebc425eb55af1689a59f88119c69430a860c6a05f340e445c417d7
+    //Alice private key:   9632f11629d05bbb9a3aef95d330b3fab6630d8133bed3efe0cc8b19191c53a9
+    //Bob private key key:   0532f8eee64d878e051cb2a330428f193c6650da12a03f302c8eac826388a9a1
+    //p2wsh address : tb1qtlfn8sh32asacx6kcvxr5wmsmqf7vzvul8s83cadw2h3rh8dxmqshzyr0j
+    //txid = 76901d499b6746cb51c12210eeb813ea4159b19c65bc09485fdf36db029f77e6
+    const txid =
+      '76901d499b6746cb51c12210eeb813ea4159b19c65bc09485fdf36db029f77e6';
+    const url = `${base_url}/tx/${txid}`;
     const tx = await lastValueFrom(
       this.httpService.get(url).pipe(map((resp) => resp.data)),
     );
 
     const nonWitnessUtxo = Buffer.from(tx.vout, 'hex');
-    const alice = ECPair.fromWIF(privateKey, networks.testnet);
+    console.log(nonWitnessUtxo);
+    // const alice = ECPair.fromWIF(privateKey, networks.testnet);
+    const alice = ECPair.fromWIF(
+      'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
+      networks.testnet,
+    );
 
-    const witnessScript = this.redeemScript(alicePubKey, heirPubKey);
+    const bob = ECPair.fromWIF(
+      'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
+      networks.testnet,
+    );
+
+    const witnessScript = this.redeemScript(
+      alice.publicKey.toString('hex'),
+      bob.publicKey.toString('hex'),
+    );
 
     const psbt = new Psbt({ network: networks.testnet })
       .setVersion(2)
       .addInput({
-        hash: tx.txid,
+        hash: txid,
         index: 0,
-        sequence: 0xfffffffd,
-        // redeemScript: redeemScript.redeem.output,
+        sequence,
         redeemScript: witnessScript.redeem.output,
         nonWitnessUtxo,
       })
       .addOutput({
-        address: recipientAddress,
-        value: amountInSatoshis,
+        address: addr,
+        value: 2000,
       })
       .signInput(0, alice)
       .finalizeInput(0, this.csvGetFinalScripts)
       .extractTransaction();
     console.log('Created transaction: ' + psbt.toHex());
-    // console.log('Transaction has ID: ' + psbt.getId());
+    console.log('Transaction has ID: ' + psbt.getId());
 
     return psbt;
   }
