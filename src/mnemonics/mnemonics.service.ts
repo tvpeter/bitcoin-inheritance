@@ -160,35 +160,44 @@ export class MnemonicsService {
     recipientAddress: string,
     amountInSatoshis: number,
     transaction_id: string,
-    output_index: number,
     alicePubKey: string,
     heirPubKey: string,
     privateKey: string,
   ): Promise<any> {
     const sequence = encode({ seconds: 7168 });
-    // const nonWitnessUtxo = Buffer.from(utx.txHex, 'hex');
+    const base_url = this.configService.get<string>(
+      'BLOCKSTREAM_TEST_ENDPOINT',
+    );
 
-    const alice = ECPair.fromWIF(privateKey, networks.regtest);
-    const redeemScript = this.redeemScript(alicePubKey, heirPubKey);
+    const url = `${base_url}/tx/${transaction_id}`;
+    const tx = await lastValueFrom(
+      this.httpService.get(url).pipe(map((resp) => resp.data)),
+    );
 
-    const psbt = new Psbt({ network: networks.regtest })
+    const nonWitnessUtxo = Buffer.from(tx.vout, 'hex');
+    const alice = ECPair.fromWIF(privateKey, networks.testnet);
+
+    const witnessScript = this.redeemScript(alicePubKey, heirPubKey);
+
+    const psbt = new Psbt({ network: networks.testnet })
       .setVersion(2)
       .addInput({
-        hash: transaction_id,
-        index: output_index,
-        sequence,
-        redeemScript: redeemScript.redeem.output,
-        // nonWitnessUtxo,
+        hash: tx.txid,
+        index: 0,
+        sequence: 0xfffffffd,
+        // redeemScript: redeemScript.redeem.output,
+        redeemScript: witnessScript.redeem.output,
+        nonWitnessUtxo,
       })
       .addOutput({
         address: recipientAddress,
         value: amountInSatoshis,
       })
       .signInput(0, alice)
-      .finalizeInput(0, this.csvGetFinalScripts) // See csvGetFinalScripts below
+      .finalizeInput(0, this.csvGetFinalScripts)
       .extractTransaction();
-    // console.log('Created transaction: ' + tx.toHex());
-    // console.log('Transaction has ID: ' + tx.getId());
+    console.log('Created transaction: ' + psbt.toHex());
+    // console.log('Transaction has ID: ' + psbt.getId());
 
     return psbt;
   }
@@ -214,11 +223,11 @@ export class MnemonicsService {
   }
 
   redeemScript(alice, bob) {
-    const redeemScript = payments.p2sh({
+    const redeemScript = payments.p2wsh({
       redeem: {
         output: this.createRefreshOutputScript(alice, bob),
       },
-      network: networks.regtest,
+      network: networks.testnet,
     });
 
     return redeemScript;
@@ -345,7 +354,7 @@ export class MnemonicsService {
 
     // Step 2: Create final scripts
     let payment: Payment = {
-      network: networks.regtest,
+      network: networks.testnet,
       output: scriptHash,
       // This logic should be more strict and make sure the pubkeys in the
       // meaningful script are the ones signing in the PSBT etc.
@@ -353,12 +362,12 @@ export class MnemonicsService {
     };
     if (isP2WSH && isSegwit)
       payment = payments.p2wsh({
-        network: networks.regtest,
+        network: networks.testnet,
         redeem: payment,
       });
     if (isP2SH)
-      payment = payments.p2sh({
-        network: networks.regtest,
+      payment = payments.p2wsh({
+        network: networks.testnet,
         redeem: payment,
       });
 

@@ -134,7 +134,6 @@ export class MnemonicsController {
       createTX.recipientAddress,
       createTX.amount,
       createTX.transaction_id,
-      createTX.output_index,
       createTX.pubkey,
       createTX.heirPubKey,
       createTX.privateKey,

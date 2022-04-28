@@ -13,9 +13,6 @@ export class CreateTx {
   transaction_id: string;
 
   @IsNotEmpty()
-  output_index: number;
-
-  @IsNotEmpty()
   pubkey: string;
 
   @IsNotEmpty()
