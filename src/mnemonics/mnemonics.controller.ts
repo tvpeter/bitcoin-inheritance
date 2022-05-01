@@ -130,7 +130,7 @@ export class MnemonicsController {
     @Body() createTX: CreateTx,
     @Res() res: Response,
   ): Promise<Response> {
-    const psbt = this.mnemonicsService.createTransaction(
+    const psbt = await this.mnemonicsService.createTransaction(
       createTX.recipientAddress,
       createTX.amount,
       createTX.transaction_id,
@@ -140,7 +140,9 @@ export class MnemonicsController {
     );
     return res.status(HttpStatus.CREATED).json({
       message: 'Transaction created successfully',
-      data: psbt,
+      data: {
+        txid: psbt,
+      },
     });
   }
 

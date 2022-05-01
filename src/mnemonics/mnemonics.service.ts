@@ -9,12 +9,11 @@ import {
   networks,
   script,
   opcodes,
-  crypto,
   Payment,
   ECPair,
 } from 'bitcoinjs-lib';
 // import coinselect from a'coinselect';
-import { Injectable } from '@nestjs/common';
+import { ConsoleLogger, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
@@ -23,7 +22,7 @@ import { lastValueFrom, Observable } from 'rxjs';
 import { AxiosResponse } from 'axios';
 import { map, merge, mergeMap, switchMap, tap } from 'rxjs/operators';
 import { KeyPair } from './types/mnemonics.types';
-import { p2sh } from 'bitcoinjs-lib/types/payments';
+import { PsbtInput } from 'bip174/src/lib/interfaces';
 
 @Injectable()
 export class MnemonicsService {
@@ -106,10 +105,7 @@ export class MnemonicsService {
     console.log('Alice private key:   ' + alice.privateKey.toString('hex'));
     console.log('Bob private key key:   ' + bob.privateKey.toString('hex'));
 
-    const address = this.generateP2WSHAddress(
-      alice.publicKey.toString('hex'),
-      bob.publicKey.toString('hex'),
-    );
+    const address = this.generateP2WSHAddress(alice, bob);
     return address;
   }
 
@@ -143,7 +139,7 @@ export class MnemonicsService {
     return address;
   }
 
-  generateP2WSHAddress(childKey, heirPubKey: string) {
+  generateP2WSHAddress(childKey, heirPubKey) {
     const witnessScript = this.redeemScript(childKey, heirPubKey);
     // console.log(witnessScript.toString('hex'));
     // const address = payments.p2wsh({
@@ -190,7 +186,8 @@ export class MnemonicsService {
       'BLOCKSTREAM_TEST_ENDPOINT',
     );
 
-    const addr = 'tb1qjah7lr0zu9e6y0gu52dkc6mrxh5wev3qwnkcnf';
+    const addr =
+      'tb1qtlfn8sh32asacx6kcvxr5wmsmqf7vzvul8s83cadw2h3rh8dxmqshzyr0j';
     // menomics: offer demand swallow lizard taste connect media cool flame mail pistol resource rebel assault panther shove wink planet flip notable reduce blanket horror aspect
     //Alice is using pubkey: 038ea27103fb646a2cea9eca9080737e0b23640caaaef2853416c9b286b353313e
     //Bob is using pubkey:   038f0248cc0bebc425eb55af1689a59f88119c69430a860c6a05f340e445c417d7
@@ -199,14 +196,13 @@ export class MnemonicsService {
     //p2wsh address : tb1qtlfn8sh32asacx6kcvxr5wmsmqf7vzvul8s83cadw2h3rh8dxmqshzyr0j
     //txid = 76901d499b6746cb51c12210eeb813ea4159b19c65bc09485fdf36db029f77e6
     const txid =
-      '76901d499b6746cb51c12210eeb813ea4159b19c65bc09485fdf36db029f77e6';
-    const url = `${base_url}/tx/${txid}`;
+      '3078783d8e1f7182ed433d8696157f747ac4d708f79b20bcc8e7b335afa5c258';
+    const url = `${base_url}/tx/${txid}/hex`;
     const tx = await lastValueFrom(
       this.httpService.get(url).pipe(map((resp) => resp.data)),
     );
+    const nonWitnessUtxo = Buffer.from(tx, 'hex');
 
-    const nonWitnessUtxo = Buffer.from(tx.vout, 'hex');
-    console.log(nonWitnessUtxo);
     // const alice = ECPair.fromWIF(privateKey, networks.testnet);
     const alice = ECPair.fromWIF(
       'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
@@ -218,10 +214,7 @@ export class MnemonicsService {
       networks.testnet,
     );
 
-    const witnessScript = this.redeemScript(
-      alice.publicKey.toString('hex'),
-      bob.publicKey.toString('hex'),
-    );
+    const witnessScript = this.redeemScript(alice, bob);
 
     const psbt = new Psbt({ network: networks.testnet })
       .setVersion(2)
@@ -229,7 +222,7 @@ export class MnemonicsService {
         hash: txid,
         index: 0,
         sequence,
-        redeemScript: witnessScript.redeem.output,
+        witnessScript: witnessScript.redeem.output,
         nonWitnessUtxo,
       })
       .addOutput({
@@ -239,22 +232,19 @@ export class MnemonicsService {
       .signInput(0, alice)
       .finalizeInput(0, this.csvGetFinalScripts)
       .extractTransaction();
-    console.log('Created transaction: ' + psbt.toHex());
-    console.log('Transaction has ID: ' + psbt.getId());
-
-    return psbt;
+    return psbt.getId();
   }
 
-  createRefreshOutputScript(aliceKey, bobKey: KeyPair): Buffer {
+  createRefreshOutputScript(alice: KeyPair, bob: KeyPair): Buffer {
     const sequence = encode({ seconds: 7168 });
 
     return script.fromASM(
       `
-      ${aliceKey.toString('hex')}
+      ${alice.publicKey.toString('hex')}
       OP_CHECKSIG
       OP_IFDUP
       OP_NOTIF
-          ${bobKey}
+      ${bob.publicKey.toString('hex')}
           OP_CHECKSIGVERIFY
           ${script.number.encode(sequence).toString('hex')}
           OP_CHECKSEQUENCEVERIFY
@@ -276,36 +266,6 @@ export class MnemonicsService {
     return redeemScript;
   }
 
-  async signTransaction(psbt: Psbt, pubkey, witnessScriptOutput) {
-    // Step 1: Check to make sure the meaningful locking script matches what you expect.
-    // const decompiled = script.decompile(witnessScriptOutput);
-    // if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
-    //   throw new Error(`Can not finalize input`);
-    // }
-
-    const paymentFirstBranch = payments.p2wsh({
-      redeem: {
-        input: script.compile([pubkey.signature, opcodes.OP_TRUE]),
-        output: witnessScriptOutput,
-      },
-    });
-
-    const finalScriptWitness = this.witnessStackToScriptWitness(
-      paymentFirstBranch.witness,
-    );
-    const mnemonic = await this.createMnemonic();
-    const seed = await mnemonicToSeed(mnemonic);
-    const root = bip32.fromSeed(seed, networks.testnet);
-
-    // const keyPair = pub and network
-    //ecpair
-    // psbt.signInput(0, pubkey);
-
-    // psbt.signInput(0, pubkey);
-    psbt.signInputHD(0, root);
-
-    psbt.finalizeAllInputs();
-  }
 
   //refresh transaction
   //mnenomic of alice, pubkey of bob, this should be saved
@@ -349,7 +309,6 @@ export class MnemonicsService {
     );
 
     const url = `${base_url}/address/${address}/txs`;
-    // console.log(url);
     const resp = await lastValueFrom(
       this.httpService.get(url).pipe(map((resp) => resp.data)),
     );
@@ -375,7 +334,7 @@ export class MnemonicsService {
   // See first test above.
   csvGetFinalScripts(
     inputIndex: number,
-    input,
+    input: PsbtInput,
     scriptHash: Buffer,
     isSegwit: boolean,
     isP2SH: boolean,
@@ -391,9 +350,12 @@ export class MnemonicsService {
     // whitelist depending on the circumstances!!!
     // You also want to check the contents of the input to see if you have enough
     // info to actually construct the scriptSig and Witnesses.
-    if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
-      throw new Error(`Can not finalize input #${inputIndex}`);
-    }
+    // console.log('decompile 0:  ' + decompiled[0]);
+    // console.log('OP IF: ' + opcodes.OP_IF);
+
+    // if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
+    //   throw new Error(`Can not finalize input #${inputIndex}`);
+    // }
 
     // Step 2: Create final scripts
     let payment: Payment = {
