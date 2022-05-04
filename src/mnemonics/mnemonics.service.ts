@@ -4,6 +4,7 @@ import * as varuint from 'bip174/src/lib/converter/varint';
 import { encode } from './types/bip68';
 import { wif } from 'wif';
 import {
+  crypto,
   payments,
   Psbt,
   bip32,
@@ -12,6 +13,7 @@ import {
   opcodes,
   Payment,
   ECPair,
+  Transaction,
 } from 'bitcoinjs-lib';
 // import coinselect from a'coinselect';
 import { Injectable } from '@nestjs/common';
@@ -232,14 +234,17 @@ export class MnemonicsService {
         hash: txid,
         index: 0,
         sequence,
+        witnessUtxo: {
+          script: Buffer.from('0020' + crypto.sha256(witnessScript.redeem.output).toString('hex'), 'hex'),
+          value: 2573,
+        },
         witnessScript: witnessScript.redeem.output,
-        nonWitnessUtxo,
       })
       .addOutput({
         address: addr,
         value: 2000,
       })
-      .signInput(0, alice)
+      .signInput(0, alice, [Transaction.SIGHASH_ALL])
       .finalizeInput(0, this.csvGetFinalScripts)
       .extractTransaction();
     // return psbt.getId();
@@ -289,6 +294,11 @@ export class MnemonicsService {
       },
       network: networks.testnet,
     });
+    console.log('P2WSH address:');
+    console.log(redeemScript.address);
+
+    console.log('P2WSH script:');
+    console.log(redeemScript.redeem);
 
     return redeemScript;
   }
@@ -393,7 +403,7 @@ export class MnemonicsService {
       output: scriptHash,
       // This logic should be more strict and make sure the pubkeys in the
       // meaningful script are the ones signing in the PSBT etc.
-      input: script.compile([input.partialSig[0].signature, opcodes.OP_TRUE]),
+      input: script.compile([input.partialSig[0].signature]),
     };
     if (isP2WSH && isSegwit)
       payment = payments.p2wsh({

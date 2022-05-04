@@ -132,7 +132,7 @@ export class MnemonicsController {
     return res.status(HttpStatus.CREATED).json({
       message: 'Transaction created successfully',
       data: {
-        txid: psbt,
+        tx_hex: psbt,
       },
     });
   }
