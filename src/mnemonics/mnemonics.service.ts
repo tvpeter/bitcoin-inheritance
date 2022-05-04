@@ -174,14 +174,13 @@ export class MnemonicsService {
   // });
 
   //create and sign transaction
-  async createTransaction(
-    recipientAddress: string,
-    // amountInSatoshis: number,
-    // transaction_id: string,
-    // alicePubKey: string,
-    // heirPubKey: string,
-    // privateKey: string,
-  ): Promise<any> {
+  async createTransaction(): // recipientAddress: string,
+  // amountInSatoshis: number,
+  // transaction_id: string,
+  // alicePubKey: string,
+  // heirPubKey: string,
+  // privateKey: string,
+  Promise<any> {
     const testNetVersionPrefix = 0xef;
     const sequence = encode({ seconds: 7168 });
     const base_url = this.configService.get<string>(
