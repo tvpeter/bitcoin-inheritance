@@ -2,6 +2,7 @@ import { generateMnemonic, mnemonicToSeed } from 'bip39';
 import { BIP32Interface, fromSeed } from 'bip32';
 import * as varuint from 'bip174/src/lib/converter/varint';
 import { encode } from './types/bip68';
+import { wif } from 'wif';
 import {
   payments,
   Psbt,
@@ -13,12 +14,12 @@ import {
   ECPair,
 } from 'bitcoinjs-lib';
 // import coinselect from a'coinselect';
-import { ConsoleLogger, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { HttpService } from '@nestjs/axios';
-import { lastValueFrom, Observable } from 'rxjs';
+import { firstValueFrom, lastValueFrom, Observable } from 'rxjs';
 import { AxiosResponse } from 'axios';
 import { map, merge, mergeMap, switchMap, tap } from 'rxjs/operators';
 import { KeyPair } from './types/mnemonics.types';
@@ -175,44 +176,54 @@ export class MnemonicsService {
   //create and sign transaction
   async createTransaction(
     recipientAddress: string,
-    amountInSatoshis: number,
-    transaction_id: string,
-    alicePubKey: string,
-    heirPubKey: string,
-    privateKey: string,
+    // amountInSatoshis: number,
+    // transaction_id: string,
+    // alicePubKey: string,
+    // heirPubKey: string,
+    // privateKey: string,
   ): Promise<any> {
+    const testNetVersionPrefix = 0xef;
     const sequence = encode({ seconds: 7168 });
     const base_url = this.configService.get<string>(
       'BLOCKSTREAM_TEST_ENDPOINT',
     );
-
+    //p2wsh address
     const addr =
       'tb1qtlfn8sh32asacx6kcvxr5wmsmqf7vzvul8s83cadw2h3rh8dxmqshzyr0j';
     // menomics: offer demand swallow lizard taste connect media cool flame mail pistol resource rebel assault panther shove wink planet flip notable reduce blanket horror aspect
-    //Alice is using pubkey: 038ea27103fb646a2cea9eca9080737e0b23640caaaef2853416c9b286b353313e
-    //Bob is using pubkey:   038f0248cc0bebc425eb55af1689a59f88119c69430a860c6a05f340e445c417d7
-    //Alice private key:   9632f11629d05bbb9a3aef95d330b3fab6630d8133bed3efe0cc8b19191c53a9
-    //Bob private key key:   0532f8eee64d878e051cb2a330428f193c6650da12a03f302c8eac826388a9a1
-    //p2wsh address : tb1qtlfn8sh32asacx6kcvxr5wmsmqf7vzvul8s83cadw2h3rh8dxmqshzyr0j
-    //txid = 76901d499b6746cb51c12210eeb813ea4159b19c65bc09485fdf36db029f77e6
+    const alicePubKey =
+      '038ea27103fb646a2cea9eca9080737e0b23640caaaef2853416c9b286b353313e';
+    const bobPubKey =
+      '038f0248cc0bebc425eb55af1689a59f88119c69430a860c6a05f340e445c417d7';
+    const alicePrivKey =
+      '9632f11629d05bbb9a3aef95d330b3fab6630d8133bed3efe0cc8b19191c53a9';
+    // const bobPrivKey =
+    //   '0532f8eee64d878e051cb2a330428f193c6650da12a03f302c8eac826388a9a1';
     const txid =
-      '3078783d8e1f7182ed433d8696157f747ac4d708f79b20bcc8e7b335afa5c258';
+      '76901d499b6746cb51c12210eeb813ea4159b19c65bc09485fdf36db029f77e6';
+    // const txid =
+    //   '3078783d8e1f7182ed433d8696157f747ac4d708f79b20bcc8e7b335afa5c258';
+
     const url = `${base_url}/tx/${txid}/hex`;
     const tx = await lastValueFrom(
       this.httpService.get(url).pipe(map((resp) => resp.data)),
     );
     const nonWitnessUtxo = Buffer.from(tx, 'hex');
 
-    // const alice = ECPair.fromWIF(privateKey, networks.testnet);
-    const alice = ECPair.fromWIF(
-      'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
-      networks.testnet,
-    );
+    const alicePubBuffer = Buffer.from(alicePrivKey, 'hex');
 
-    const bob = ECPair.fromWIF(
-      'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
-      networks.testnet,
-    );
+    const alice = ECPair.fromPrivateKey(alicePubBuffer, {
+      network: networks.testnet,
+      compressed: true,
+    });
+
+    // const alice = ECPair.fromWIF(aliceWIF, networks.testnet);
+    const bobPubBuffer = Buffer.from(bobPubKey, 'hex');
+
+    const bob = ECPair.fromPublicKey(bobPubBuffer, {
+      network: networks.testnet,
+      compressed: true,
+    });
 
     const witnessScript = this.redeemScript(alice, bob);
 
@@ -222,7 +233,7 @@ export class MnemonicsService {
         hash: txid,
         index: 0,
         sequence,
-        witnessScript: witnessScript.redeem.output,
+        redeemScript: witnessScript.redeem.output,
         nonWitnessUtxo,
       })
       .addOutput({
@@ -232,7 +243,24 @@ export class MnemonicsService {
       .signInput(0, alice)
       .finalizeInput(0, this.csvGetFinalScripts)
       .extractTransaction();
-    return psbt.getId();
+    // return psbt.getId();
+
+    return psbt.toHex();
+  }
+
+  async broadcastTransaction(txHex: string): Promise<any> {
+    const base_url = this.configService.get<string>(
+      'BLOCKSTREAM_TEST_ENDPOINT',
+    );
+    const url = `${base_url}/tx`;
+
+    const resp = await this.httpService
+      .post(url, txHex)
+      .pipe(map((response) => response.data));
+
+    console.log(resp);
+
+    return resp;
   }
 
   createRefreshOutputScript(alice: KeyPair, bob: KeyPair): Buffer {
@@ -265,7 +293,6 @@ export class MnemonicsService {
 
     return redeemScript;
   }
-
 
   //refresh transaction
   //mnenomic of alice, pubkey of bob, this should be saved
@@ -350,12 +377,16 @@ export class MnemonicsService {
     // whitelist depending on the circumstances!!!
     // You also want to check the contents of the input to see if you have enough
     // info to actually construct the scriptSig and Witnesses.
-    // console.log('decompile 0:  ' + decompiled[0]);
-    // console.log('OP IF: ' + opcodes.OP_IF);
+    console.log(decompiled);
+    console.log(
+      'compiled above -----------------------------------------------',
+    );
+    console.log('decompile :  ' + decompiled[0]);
+    console.log('OP IF: ' + opcodes.OP_IF);
 
-    // if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
-    //   throw new Error(`Can not finalize input #${inputIndex}`);
-    // }
+    if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
+      throw new Error(`Can not finalize input #${inputIndex}`);
+    }
 
     // Step 2: Create final scripts
     let payment: Payment = {

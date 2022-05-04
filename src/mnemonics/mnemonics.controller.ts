@@ -132,11 +132,6 @@ export class MnemonicsController {
   ): Promise<Response> {
     const psbt = await this.mnemonicsService.createTransaction(
       createTX.recipientAddress,
-      createTX.amount,
-      createTX.transaction_id,
-      createTX.pubkey,
-      createTX.heirPubKey,
-      createTX.privateKey,
     );
     return res.status(HttpStatus.CREATED).json({
       message: 'Transaction created successfully',
