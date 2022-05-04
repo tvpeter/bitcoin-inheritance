@@ -232,7 +232,7 @@ export class MnemonicsService {
         hash: txid,
         index: 0,
         sequence,
-        redeemScript: witnessScript.redeem.output,
+        witnessScript: witnessScript.redeem.output,
         nonWitnessUtxo,
       })
       .addOutput({
@@ -383,9 +383,9 @@ export class MnemonicsService {
     console.log('decompile :  ' + decompiled[0]);
     console.log('OP IF: ' + opcodes.OP_IF);
 
-    if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
-      throw new Error(`Can not finalize input #${inputIndex}`);
-    }
+    // if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
+    //   throw new Error(`Can not finalize input #${inputIndex}`);
+    // }
 
     // Step 2: Create final scripts
     let payment: Payment = {

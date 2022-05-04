@@ -15,8 +15,6 @@ import { MnemonicsService } from './mnemonics.service';
 import { CreatePrivateKeyDto } from './dto/CreatePrivateKey.dto';
 import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
 import { CreateAddressDTO } from './dto/CreateAddress.dto';
-import { createPublicKey } from 'crypto';
-import { AddressTxsDTO } from './dto/GetAddressTxs.dto';
 import { CreateTx } from './dto/CreateTx.dto';
 
 @Controller('wallet')
