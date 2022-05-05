@@ -150,4 +150,18 @@ export class MnemonicsController {
       data: publicKey,
     });
   }
+
+  @Post('broadcast')
+  async broadCast(
+    @Body() createPrivateKey: CreatePrivateKeyDto,
+    @Res() res: Response,
+  ): Promise<Response> {
+    const publicKey = this.mnemonicsService.broadcastTransaction(
+      createPrivateKey.mnemonic,
+    );
+    return res.status(HttpStatus.CREATED).json({
+      message: 'address generated successfully',
+      data: publicKey,
+    });
+  }
 }

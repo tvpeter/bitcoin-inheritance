@@ -26,6 +26,7 @@ import { AxiosResponse } from 'axios';
 import { map, merge, mergeMap, switchMap, tap } from 'rxjs/operators';
 import { KeyPair } from './types/mnemonics.types';
 import { PsbtInput } from 'bip174/src/lib/interfaces';
+import { json } from 'node:stream/consumers';
 
 @Injectable()
 export class MnemonicsService {
@@ -76,23 +77,17 @@ export class MnemonicsService {
 
   async testFunction(heirPubKey): Promise<any> {
     const mnemonic = await this.createMnemonic();
-    console.log('menomics: ' + mnemonic);
 
     // //master private key
-    // const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
-    // // const masterPrivateKeyFingerPrint = masterPrivateKey.fingerprint;
-    // console.log('private key master: ' + masterPrivateKey.toWIF());
-    // //get xpub key
-    // const derivationPath = "m/84'/0'/0'";
-    // const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
-    // //child public key
-    // console.log('xpub key ' + xpub);
+    const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
+    console.log('ALICE WIF:  ' + masterPrivateKey.toWIF());
 
-    // const childDerivationPath = '0/1';
-    // const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
-    // // return childPubKey;
-    // console.log('public key ' + childPubKey);
-    // //generate address
+    const derivationPath = "m/84'/0'/1'";
+    const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
+    //child public key
+
+    const childDerivationPath = '0/1';
+    const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
 
     const alice = ECPair.fromWIF(
       'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
@@ -184,47 +179,22 @@ export class MnemonicsService {
   // privateKey: string,
   Promise<any> {
     const testNetVersionPrefix = 0xef;
-    const sequence = encode({ seconds: 7168 });
+    // const sequence = encode({ blocks: 0 });
     const base_url = this.configService.get<string>(
       'BLOCKSTREAM_TEST_ENDPOINT',
     );
     //p2wsh address
-    const addr =
-      'tb1qtlfn8sh32asacx6kcvxr5wmsmqf7vzvul8s83cadw2h3rh8dxmqshzyr0j';
-    // menomics: offer demand swallow lizard taste connect media cool flame mail pistol resource rebel assault panther shove wink planet flip notable reduce blanket horror aspect
-    const alicePubKey =
-      '038ea27103fb646a2cea9eca9080737e0b23640caaaef2853416c9b286b353313e';
-    const bobPubKey =
-      '038f0248cc0bebc425eb55af1689a59f88119c69430a860c6a05f340e445c417d7';
-    const alicePrivKey =
-      '9632f11629d05bbb9a3aef95d330b3fab6630d8133bed3efe0cc8b19191c53a9';
-    // const bobPrivKey =
-    //   '0532f8eee64d878e051cb2a330428f193c6650da12a03f302c8eac826388a9a1';
-    const txid =
-      '76901d499b6746cb51c12210eeb813ea4159b19c65bc09485fdf36db029f77e6';
-    // const txid =
-    //   '3078783d8e1f7182ed433d8696157f747ac4d708f79b20bcc8e7b335afa5c258';
-
-    const url = `${base_url}/tx/${txid}/hex`;
-    const tx = await lastValueFrom(
-      this.httpService.get(url).pipe(map((resp) => resp.data)),
+    const addr = 'tb1q382spwjapytss62lqsx6t2hm4rrpa6rgwsqtlk';
+    const alice = ECPair.fromWIF(
+      'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
+      networks.testnet,
     );
-    const nonWitnessUtxo = Buffer.from(tx, 'hex');
-
-    const alicePubBuffer = Buffer.from(alicePrivKey, 'hex');
-
-    const alice = ECPair.fromPrivateKey(alicePubBuffer, {
-      network: networks.testnet,
-      compressed: true,
-    });
-
-    // const alice = ECPair.fromWIF(aliceWIF, networks.testnet);
-    const bobPubBuffer = Buffer.from(bobPubKey, 'hex');
-
-    const bob = ECPair.fromPublicKey(bobPubBuffer, {
-      network: networks.testnet,
-      compressed: true,
-    });
+    const bob = ECPair.fromWIF(
+      'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
+      networks.testnet,
+    );
+    const txid =
+      '19397df16f4ef128e73f43ea3e491ebdf1d40cc2518351462449bc027581e6f2';
 
     const witnessScript = this.redeemScript(alice, bob);
 
@@ -232,17 +202,20 @@ export class MnemonicsService {
       .setVersion(2)
       .addInput({
         hash: txid,
-        index: 0,
-        sequence,
+        index: 1,
+        // sequence,
         witnessUtxo: {
-          script: Buffer.from('0020' + crypto.sha256(witnessScript.redeem.output).toString('hex'), 'hex'),
-          value: 2573,
+          script: Buffer.from(
+            '0020' + crypto.sha256(witnessScript.redeem.output).toString('hex'),
+            'hex',
+          ),
+          value: 70000,
         },
         witnessScript: witnessScript.redeem.output,
       })
       .addOutput({
         address: addr,
-        value: 2000,
+        value: 70000,
       })
       .signInput(0, alice, [Transaction.SIGHASH_ALL])
       .finalizeInput(0, this.csvGetFinalScripts)
@@ -257,10 +230,8 @@ export class MnemonicsService {
       'BLOCKSTREAM_TEST_ENDPOINT',
     );
     const url = `${base_url}/tx`;
-
-    const resp = await this.httpService
-      .post(url, txHex)
-      .pipe(map((response) => response.data));
+    const resp = await this.httpService.post(url, txHex);
+    // .pipe(map((response) => response.data));
 
     console.log(resp);
 
@@ -386,12 +357,6 @@ export class MnemonicsService {
     // whitelist depending on the circumstances!!!
     // You also want to check the contents of the input to see if you have enough
     // info to actually construct the scriptSig and Witnesses.
-    console.log(decompiled);
-    console.log(
-      'compiled above -----------------------------------------------',
-    );
-    console.log('decompile :  ' + decompiled[0]);
-    console.log('OP IF: ' + opcodes.OP_IF);
 
     // if (!decompiled || decompiled[0] !== opcodes.OP_IF) {
     //   throw new Error(`Can not finalize input #${inputIndex}`);
