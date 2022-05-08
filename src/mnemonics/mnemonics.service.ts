@@ -2,7 +2,6 @@ import { generateMnemonic, mnemonicToSeed } from 'bip39';
 import { BIP32Interface, fromSeed } from 'bip32';
 import * as varuint from 'bip174/src/lib/converter/varint';
 import { encode } from './types/bip68';
-import { wif } from 'wif';
 import {
   crypto,
   payments,
@@ -22,11 +21,9 @@ import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom, lastValueFrom, Observable } from 'rxjs';
-import { AxiosResponse } from 'axios';
 import { map, merge, mergeMap, switchMap, tap } from 'rxjs/operators';
 import { KeyPair } from './types/mnemonics.types';
 import { PsbtInput } from 'bip174/src/lib/interfaces';
-import { json } from 'node:stream/consumers';
 
 @Injectable()
 export class MnemonicsService {
@@ -80,7 +77,7 @@ export class MnemonicsService {
 
     // //master private key
     const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
-    console.log('ALICE WIF:  ' + masterPrivateKey.toWIF());
+    // console.log('ALICE WIF:  ' + masterPrivateKey.toWIF());
 
     const derivationPath = "m/84'/0'/1'";
     const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
@@ -171,20 +168,22 @@ export class MnemonicsService {
   // });
 
   //create and sign transaction
-  async createTransaction(): // recipientAddress: string,
-  // amountInSatoshis: number,
-  // transaction_id: string,
-  // alicePubKey: string,
-  // heirPubKey: string,
-  // privateKey: string,
-  Promise<any> {
+  async createTransaction(
+    recipientAddress: string,
+    amountInSatoshis: number,
+    transaction_id: string,
+    output_index: number,
+    // alicePubKey: string,
+    // heirPubKey: string,
+    // privateKey: string,
+  ): Promise<any> {
     const testNetVersionPrefix = 0xef;
     // const sequence = encode({ blocks: 0 });
     const base_url = this.configService.get<string>(
       'BLOCKSTREAM_TEST_ENDPOINT',
     );
     //p2wsh address
-    const addr = 'tb1q382spwjapytss62lqsx6t2hm4rrpa6rgwsqtlk';
+    // const addr = 'tb1q382spwjapytss62lqsx6t2hm4rrpa6rgwsqtlk';
     const alice = ECPair.fromWIF(
       'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
       networks.testnet,
@@ -193,29 +192,29 @@ export class MnemonicsService {
       'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
       networks.testnet,
     );
-    const txid =
-      '19397df16f4ef128e73f43ea3e491ebdf1d40cc2518351462449bc027581e6f2';
+    // const txid =
+    // '19397df16f4ef128e73f43ea3e491ebdf1d40cc2518351462449bc027581e6f2';
 
     const witnessScript = this.redeemScript(alice, bob);
 
     const psbt = new Psbt({ network: networks.testnet })
       .setVersion(2)
       .addInput({
-        hash: txid,
-        index: 1,
+        hash: transaction_id,
+        index: output_index,
         // sequence,
         witnessUtxo: {
           script: Buffer.from(
             '0020' + crypto.sha256(witnessScript.redeem.output).toString('hex'),
             'hex',
           ),
-          value: 70000,
+          value: amountInSatoshis,
         },
         witnessScript: witnessScript.redeem.output,
       })
       .addOutput({
-        address: addr,
-        value: 70000,
+        address: recipientAddress,
+        value: amountInSatoshis,
       })
       .signInput(0, alice, [Transaction.SIGHASH_ALL])
       .finalizeInput(0, this.csvGetFinalScripts)
@@ -227,16 +226,23 @@ export class MnemonicsService {
 
   async broadcastTransaction(txHex: string): Promise<any> {
     const base_url = this.configService.get<string>(
-      'BLOCKSTREAM_TEST_ENDPOINT',
+      'BLOCKCYPHER_TESTNET_ENDPOINT',
     );
-    const url = `${base_url}/tx`;
-    const resp = await this.httpService.post(url, txHex);
-    // .pipe(map((response) => response.data));
 
-    console.log(resp);
+    const tx = {
+      tx: txHex,
+    };
 
-    return resp;
+    const url = `${base_url}/txs/push`;
+
+    const response = await firstValueFrom(
+      this.httpService.post(url, JSON.stringify(tx)),
+    );
+    console.log(response.data);
+    return response.data;
   }
+
+  
 
   createRefreshOutputScript(alice: KeyPair, bob: KeyPair): Buffer {
     const sequence = encode({ seconds: 7168 });

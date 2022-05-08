@@ -16,6 +16,7 @@ import { CreatePrivateKeyDto } from './dto/CreatePrivateKey.dto';
 import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
 import { CreateAddressDTO } from './dto/CreateAddress.dto';
 import { CreateTx } from './dto/CreateTx.dto';
+import { BroadcastDto } from './dto/Broadcast.dto';
 
 @Controller('wallet')
 export class MnemonicsController {
@@ -128,7 +129,12 @@ export class MnemonicsController {
     @Body() createTX: CreateTx,
     @Res() res: Response,
   ): Promise<Response> {
-    const psbt = await this.mnemonicsService.createTransaction();
+    const psbt = await this.mnemonicsService.createTransaction(
+      createTX.recipientAddress,
+      createTX.amountInSatoshis,
+      createTX.transaction_id,
+      createTX.output_index,
+    );
     return res.status(HttpStatus.CREATED).json({
       message: 'Transaction created successfully',
       data: {
@@ -153,12 +159,13 @@ export class MnemonicsController {
 
   @Post('broadcast')
   async broadCast(
-    @Body() createPrivateKey: CreatePrivateKeyDto,
+    @Body() broadCastDto: BroadcastDto,
     @Res() res: Response,
   ): Promise<Response> {
-    const publicKey = this.mnemonicsService.broadcastTransaction(
-      createPrivateKey.mnemonic,
+    const publicKey = await this.mnemonicsService.broadcastTransaction(
+      broadCastDto.txHex,
     );
+
     return res.status(HttpStatus.CREATED).json({
       message: 'address generated successfully',
       data: publicKey,

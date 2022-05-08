@@ -1,4 +1,17 @@
-import { IsNotEmpty, IsString } from 'class-validator';
-import { bip32 } from 'bitcoinjs-lib';
+import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
-export class CreateTx {}
+export class CreateTx {
+  @IsNotEmpty()
+  @IsString()
+  transaction_id: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  output_index: number;
+
+  @IsNotEmpty()
+  recipientAddress: string;
+
+  @IsNotEmpty()
+  amountInSatoshis: number;
+}
