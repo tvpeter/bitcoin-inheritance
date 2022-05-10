@@ -9,7 +9,6 @@ import {
   bip32,
   networks,
   script,
-  opcodes,
   Payment,
   ECPair,
   Transaction,
@@ -21,7 +20,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom, lastValueFrom, Observable } from 'rxjs';
-import { map, merge, mergeMap, switchMap, tap } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import { KeyPair } from './types/mnemonics.types';
 import { PsbtInput } from 'bip174/src/lib/interfaces';
 
@@ -32,18 +31,23 @@ export class MnemonicsService {
     private httpService: HttpService,
   ) {}
 
-  // alice = ECPair.fromWIF(
-  //   'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
-  //   regtest,
-  // );
+  private getBobKeyPair()
+  {
+    return ECPair.fromWIF(
+      'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
+      networks.testnet,
+    );
+  }
 
-  // bob = ECPair.fromWIF(
-  //   'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
-  //   regtest,
-  // );
-  // console.log('Alice is using pubkey: ' + alice.publicKey.toString('hex'));
-  // console.log('Bob is using pubkey:   ' + bob.publicKey.toString('hex'));
 
+  private aliceKeyPair()
+  {
+    return ECPair.fromWIF(
+      'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
+      networks.testnet,
+    );
+  }
+  
   async createMnemonic(): Promise<string> {
     //check if it exists
     try {
@@ -72,33 +76,26 @@ export class MnemonicsService {
   // const PUBKEY2 = "03f576f5febc937cb35f89014a691b99b6b040ef35a5909dd32a974a5c6704efc5"
   // const PK2 = "cN7WgpTFNcKncaYkecYrp4S9xXPiTzEwsqARKe5zR9sqWrMUDYev"
 
-  async testFunction(heirPubKey): Promise<any> {
+  async testFunction(): Promise<any> {
     const mnemonic = await this.createMnemonic();
 
     // //master private key
     const masterPrivateKey = await this.getMasterPrivateKey(mnemonic);
-    // console.log('ALICE WIF:  ' + masterPrivateKey.toWIF());
-
+    // console.log('ALICE WIF:  ' + masterPrivateKey.toBase58());
     const derivationPath = "m/84'/0'/1'";
     const xpub = this.getXpubFromPrivateKey(masterPrivateKey, derivationPath);
     //child public key
 
-    const childDerivationPath = '0/1';
+    const childDerivationPath = '0/2';
     const childPubKey = this.deriveChildPublicKey(xpub, childDerivationPath);
 
-    const alice = ECPair.fromWIF(
-      'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
-      networks.testnet,
-    );
-
-    const bob = ECPair.fromWIF(
-      'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
-      networks.testnet,
-    );
-    console.log('Alice is using pubkey: ' + alice.publicKey.toString('hex'));
-    console.log('Bob is using pubkey:   ' + bob.publicKey.toString('hex'));
-    console.log('Alice private key:   ' + alice.privateKey.toString('hex'));
-    console.log('Bob private key key:   ' + bob.privateKey.toString('hex'));
+    const bob = this.getBobKeyPair();
+    const alice = this.aliceKeyPair();
+  
+    // console.log('Alice is using pubkey: ' + alice.publicKey.toString('hex'));
+    // console.log('Bob is using pubkey:   ' + bob.publicKey.toString('hex'));
+    // console.log('Alice private key:   ' + alice.privateKey.toString('hex'));
+    // console.log('Bob private key key:   ' + bob.privateKey.toString('hex'));
 
     const address = this.generateP2WSHAddress(alice, bob);
     return address;
@@ -178,20 +175,23 @@ export class MnemonicsService {
     // privateKey: string,
   ): Promise<any> {
     const testNetVersionPrefix = 0xef;
-    // const sequence = encode({ blocks: 0 });
-    const base_url = this.configService.get<string>(
-      'BLOCKSTREAM_TEST_ENDPOINT',
-    );
+    const sequence = encode({ blocks: 0 });
+    // const base_url = this.configService.get<string>(
+    //   'BLOCKSTREAM_TEST_ENDPOINT',
+    // );
+
+    //privateky to .wif()
+
     //p2wsh address
     // const addr = 'tb1q382spwjapytss62lqsx6t2hm4rrpa6rgwsqtlk';
-    const alice = ECPair.fromWIF(
-      'cScfkGjbzzoeewVWmU2hYPUHeVGJRDdFt7WhmrVVGkxpmPP8BHWe',
-      networks.testnet,
-    );
-    const bob = ECPair.fromWIF(
-      'cMkopUXKWsEzAjfa1zApksGRwjVpJRB3831qM9W4gKZsLwjHXA9x',
-      networks.testnet,
-    );
+    // const alice = ECPair.fromWIF(
+    //   '9632f11629d05bbb9a3aef95d330b3fab6630d8133bed3efe0cc8b19191c53a9',
+    //   networks.testnet,
+    // );
+    
+    const bob = this.getBobKeyPair();
+    const alice = this.aliceKeyPair();
+
     // const txid =
     // '19397df16f4ef128e73f43ea3e491ebdf1d40cc2518351462449bc027581e6f2';
 
@@ -205,7 +205,7 @@ export class MnemonicsService {
         // sequence,
         witnessUtxo: {
           script: Buffer.from(
-            '0020' + crypto.sha256(witnessScript.redeem.output).toString('hex'),
+            '0020' + crypto.sha256(witnessScript.redeem!.output).toString('hex'),
             'hex',
           ),
           value: amountInSatoshis,
@@ -238,11 +238,33 @@ export class MnemonicsService {
     const response = await firstValueFrom(
       this.httpService.post(url, JSON.stringify(tx)),
     );
-    console.log(response.data);
     return response.data;
   }
 
-  
+  async refreshTransaction(addressToSpendFrom): Promise<any> {
+    const base_url = this.configService.get<string>(
+      'BLOCKSTREAM_TEST_ENDPOINT',
+    );
+
+    const url = `${base_url}/address/${addressToSpendFrom}/utxo`;
+
+    const alice = this.aliceKeyPair();
+    const bob = this.getBobKeyPair();
+    //construct a new address with bob pub and alice new pub key
+    const newP2wshAddress = this.generateP2WSHAddress(alice, bob);
+    // add the same spending conditions
+   const txs = await this.getUTXOfromAddress(addressToSpendFrom);
+
+   if(!txs){
+      throw new Error('There are no UTXOs in given address');
+   }
+    // send the funds to the address
+    txs.forEach(tx => {
+      this.createTransaction(newP2wshAddress.address, tx.value, tx.txid, tx.vout);
+    });
+
+    return newP2wshAddress;
+  }
 
   createRefreshOutputScript(alice: KeyPair, bob: KeyPair): Buffer {
     const sequence = encode({ seconds: 7168 });
@@ -271,20 +293,14 @@ export class MnemonicsService {
       },
       network: networks.testnet,
     });
-    console.log('P2WSH address:');
-    console.log(redeemScript.address);
+    // console.log('P2WSH address:');
+    // console.log(redeemScript.address);
 
-    console.log('P2WSH script:');
-    console.log(redeemScript.redeem);
+    // console.log('P2WSH script:');
+    // console.log(redeemScript.redeem);
 
     return redeemScript;
   }
-
-  //refresh transaction
-  //mnenomic of alice, pubkey of bob, this should be saved
-  //use fix derivationpath
-  //abstract the fn that keeps count of the derivation path prob an in-memory db
-  //
 
   witnessStackToScriptWitness(witness): Buffer {
     let buffer = Buffer.allocUnsafe(0);
@@ -315,6 +331,7 @@ export class MnemonicsService {
 
     return buffer;
   }
+
 
   async getTransactionsOnAnAddress(address: string): Promise<Observable<any>> {
     const base_url = this.configService.get<string>(

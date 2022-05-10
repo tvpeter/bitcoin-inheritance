@@ -54,9 +54,7 @@ export class MnemonicsController {
     @Body() createPublicKey: CreatePublicKeyDto,
     @Res() res: Response,
   ) {
-    const result = await this.mnemonicsService.testFunction(
-      createPublicKey.xpub,
-    );
+    const result = await this.mnemonicsService.testFunction();
 
     return res.json({
       data: result,
