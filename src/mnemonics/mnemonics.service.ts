@@ -172,14 +172,10 @@ export class MnemonicsService {
     output_index: number,
     // alicePubKey: string,
     // heirPubKey: string,
-    // privateKey: string,
   ): Promise<any> {
     const testNetVersionPrefix = 0xef;
     const sequence = encode({ blocks: 0 });
-    // const base_url = this.configService.get<string>(
-    //   'BLOCKSTREAM_TEST_ENDPOINT',
-    // );
-
+  
     //privateky to .wif()
 
     //p2wsh address
@@ -241,13 +237,8 @@ export class MnemonicsService {
     return response.data;
   }
 
-  async refreshTransaction(addressToSpendFrom): Promise<any> {
-    const base_url = this.configService.get<string>(
-      'BLOCKSTREAM_TEST_ENDPOINT',
-    );
-
-    const url = `${base_url}/address/${addressToSpendFrom}/utxo`;
-
+  async refreshTransaction(addressToSpendFrom: string): Promise<any> {
+  
     const alice = this.aliceKeyPair();
     const bob = this.getBobKeyPair();
     //construct a new address with bob pub and alice new pub key
