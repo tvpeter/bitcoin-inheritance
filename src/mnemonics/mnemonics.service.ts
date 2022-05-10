@@ -285,7 +285,7 @@ export class MnemonicsService {
     .extractTransaction();
  
     //broadcast
-    this.broadcastTransaction(psbt.toHex());
+    await this.broadcastTransaction(psbt.toHex());
 
     return {
       newP2wshAddress,
