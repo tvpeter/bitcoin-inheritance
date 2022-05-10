@@ -241,20 +241,56 @@ export class MnemonicsService {
   
     const alice = this.aliceKeyPair();
     const bob = this.getBobKeyPair();
+    const witnessScript = this.redeemScript(alice, bob);
     //construct a new address with bob pub and alice new pub key
     const newP2wshAddress = this.generateP2WSHAddress(alice, bob);
     // add the same spending conditions
    const txs = await this.getUTXOfromAddress(addressToSpendFrom);
 
-   if(!txs){
+   if(!txs ){
       throw new Error('There are no UTXOs in given address');
    }
+
+   const psbt = new Psbt({ network: networks.testnet });
+   psbt.setVersion(2);
+
+   let totalUTXO = 0;
     // send the funds to the address
     txs.forEach(tx => {
-      this.createTransaction(newP2wshAddress.address, tx.value, tx.txid, tx.vout);
+      totalUTXO += tx.value;
+      // this.createTransaction(newP2wshAddress.address, tx.value, tx.txid, tx.vout);
+      psbt.addInput({
+        hash: tx.txid,
+        index: tx.vout,
+        // sequence,
+        witnessUtxo: {
+          script: Buffer.from(
+            '0020' + crypto.sha256(witnessScript.redeem!.output).toString('hex'),
+            'hex',
+          ),
+          value: tx.value,
+        },
+        witnessScript: witnessScript.redeem.output,
+      })
     });
 
-    return newP2wshAddress;
+    const fees: number = 0.02 * totalUTXO;
+    const balance: number = totalUTXO - fees;
+    psbt.addOutput({
+      address: newP2wshAddress.address,
+      value: balance,
+    })
+    .signInput(0, alice, [Transaction.SIGHASH_ALL])
+    .finalizeInput(0, this.csvGetFinalScripts)
+    .extractTransaction();
+ 
+    //broadcast
+    this.broadcastTransaction(psbt.toHex());
+
+    return {
+      newP2wshAddress,
+      newTxId: psbt.toHex(),
+    };
   }
 
   createRefreshOutputScript(alice: KeyPair, bob: KeyPair): Buffer {

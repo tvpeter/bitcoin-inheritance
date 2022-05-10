@@ -17,6 +17,7 @@ import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
 import { CreateAddressDTO } from './dto/CreateAddress.dto';
 import { CreateTx } from './dto/CreateTx.dto';
 import { BroadcastDto } from './dto/Broadcast.dto';
+import { AddressTxsDTO } from './dto/AddressTxs.dto'
 
 @Controller('wallet')
 export class MnemonicsController {
@@ -121,6 +122,23 @@ export class MnemonicsController {
   //     data: publicKey,
   //   });
   // }
+
+  @Get('trx/refresh')
+  async refreshTransaction(
+    @Query() query,
+    @Res() res: Response,
+  ): Promise<Response> {
+    const psbt = await this.mnemonicsService.refreshTransaction(
+      query.address,
+    );
+    return res.status(HttpStatus.CREATED).json({
+      message: 'Transaction created successfully',
+      data: {
+        tx_hex: psbt,
+      },
+    });
+  }
+
 
   @Post('trx')
   async createTransaction(
