@@ -14,7 +14,7 @@ import {
   Transaction,
 } from 'bitcoinjs-lib';
 // import coinselect from a'coinselect';
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
@@ -247,8 +247,11 @@ export class MnemonicsService {
     // add the same spending conditions
    const txs = await this.getUTXOfromAddress(addressToSpendFrom);
 
-   if(!txs ){
-      throw new Error('There are no UTXOs in given address');
+   if(!txs || txs.length < 1 ){
+     throw new HttpException({
+       status: HttpStatus.NOT_ACCEPTABLE,
+       error: 'There are no UTXOs in given address',
+     }, HttpStatus.NOT_ACCEPTABLE);
    }
 
    const psbt = new Psbt({ network: networks.testnet });
@@ -320,10 +323,8 @@ export class MnemonicsService {
       },
       network: networks.testnet,
     });
-    // console.log('P2WSH address:');
     // console.log(redeemScript.address);
 
-    // console.log('P2WSH script:');
     // console.log(redeemScript.redeem);
 
     return redeemScript;
@@ -373,7 +374,7 @@ export class MnemonicsService {
     return resp;
   }
 
-  async getUTXOfromAddress(address: string): Promise<Observable<any>> {
+  async getUTXOfromAddress(address: string): Promise<any> {
     const base_url = this.configService.get<string>(
       'BLOCKSTREAM_TEST_ENDPOINT',
     );

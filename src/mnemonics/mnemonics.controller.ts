@@ -17,7 +17,6 @@ import { CreatePublicKeyDto } from './dto/CreatePublicKey.dto';
 import { CreateAddressDTO } from './dto/CreateAddress.dto';
 import { CreateTx } from './dto/CreateTx.dto';
 import { BroadcastDto } from './dto/Broadcast.dto';
-import { AddressTxsDTO } from './dto/AddressTxs.dto'
 
 @Controller('wallet')
 export class MnemonicsController {
